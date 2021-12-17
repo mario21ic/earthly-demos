@@ -1,0 +1,34 @@
+VERSION 0.6
+FROM rust:1.51
+WORKDIR /rust-example
+
+install-chef:
+    RUN cargo install --debug cargo-chef
+
+prepare-cache:
+    FROM +install-chef
+    #COPY --dir src Cargo.lock Cargo.toml .
+    COPY --dir src Cargo.toml .
+    RUN cargo chef prepare
+    SAVE ARTIFACT recipe.json
+
+build-cache:
+    FROM +install-chef
+    COPY +prepare-cache/recipe.json ./
+    RUN cargo chef cook
+    SAVE ARTIFACT target
+    SAVE ARTIFACT $CARGO_HOME cargo_home
+
+build:
+    COPY --dir src Cargo.lock Cargo.toml .
+    COPY +build-cache/cargo_home $CARGO_HOME
+    RUN cargo build --release --bin example-rust
+    SAVE ARTIFACT target/release/example-rust example-rust
+
+docker:
+    FROM debian:buster-slim
+    COPY +build/example-rust example-rust
+    EXPOSE 9091
+    ENTRYPOINT ["./example-rust"]
+    SAVE IMAGE --push earthly/examples:rust
+
