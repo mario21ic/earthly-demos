@@ -10,23 +10,24 @@ all:
     BUILD +docker
 
 lint:
-    COPY main.go .
-    COPY go.mod .
+    COPY main.go go.mod .
     RUN go vet ./...
 
 staticcheck:
     RUN go install honnef.co/go/tools/cmd/staticcheck@latest
-    COPY main.go .
-    COPY go.mod .
+    COPY main.go go.mod .
     RUN staticcheck ./...
 
 build:
-    COPY main.go .
+    #ENV GOOS=darwin
+    #ENV GOARCH=arm64
+    COPY main.go go.mod .
     RUN go build -o build/go-example main.go
     SAVE ARTIFACT build/go-example /go-example AS LOCAL build/go-example
 
 docker:
+    #BUILD +build # save file
     COPY +build/go-example .
     ENTRYPOINT ["/go-example/go-example"]
-    SAVE IMAGE go-example:latest
+    SAVE IMAGE mario21ic/go-example:latest
 
