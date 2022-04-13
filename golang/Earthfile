@@ -25,8 +25,15 @@ build:
     RUN go build -o build/go-example main.go
     SAVE ARTIFACT build/go-example /go-example AS LOCAL build/go-example
 
+migrate:
+    FROM +build
+    RUN --push bundle exec rails db:migrate
+
+release:
+    RUN --push --secret GITHUB_TOKEN=+secrets/GH_TOKEN github-release upload
+
 docker:
-    #BUILD +build # save file
+    BUILD +build # save file
     COPY +build/go-example .
     ENTRYPOINT ["/go-example/go-example"]
     SAVE IMAGE mario21ic/go-example:latest
