@@ -1,6 +1,24 @@
 VERSION 0.6
-FROM golang:1.15-alpine3.13
+
+FROM golang:1.17-alpine
+RUN apk --update --no-cache add git
 WORKDIR /go-example
+
+all:
+    BUILD +lint
+    BUILD +build
+    BUILD +docker
+
+lint:
+    COPY main.go .
+    COPY go.mod .
+    RUN go vet ./...
+
+staticcheck:
+    RUN go install honnef.co/go/tools/cmd/staticcheck@latest
+    COPY main.go .
+    COPY go.mod .
+    RUN staticcheck ./...
 
 build:
     COPY main.go .
