@@ -1,27 +1,46 @@
 VERSION 0.6
 
-FROM golang:1.17-alpine
+FROM golang:1.15-alpine
 RUN apk --update --no-cache add git
 WORKDIR /go-example
+
+clean:
+    # No funcionará
+    #RUN rm -rf ./build/ go.sum && touch go.sum
+    RUN touch go.sum
+    SAVE ARTIFACT go.sum AS LOCAL go.sum
 
 all:
     BUILD +lint
     BUILD +build
     BUILD +docker
 
+deps:
+    COPY go.mod go.sum ./
+    RUN go mod download
+    # Output these back in case go mod download changes them
+    SAVE ARTIFACT go.mod AS LOCAL go.mod
+    SAVE ARTIFACT go.sum AS LOCAL go.sum
+
 lint:
-    COPY main.go go.mod .
+    FROM +deps
+    COPY main.go ./
     RUN go vet ./...
 
+# Requiere go-1.17
 staticcheck:
+    FROM +deps
     RUN go install honnef.co/go/tools/cmd/staticcheck@latest
-    COPY main.go go.mod .
+    COPY main.go ./
     RUN staticcheck ./...
 
 build:
+    BUILD +clean
+    FROM +deps
+    # Requiere go-1.17
     #ENV GOOS=darwin
     #ENV GOARCH=arm64
-    COPY main.go go.mod .
+    COPY main.go ./
     RUN go build -o build/go-example main.go
     SAVE ARTIFACT build/go-example /go-example AS LOCAL build/go-example
 
