@@ -1,5 +1,7 @@
 VERSION 0.6
 
+IMPORT ./services/service-one AS my_service
+
 FROM golang:1.15-alpine
 RUN apk --update --no-cache add git
 WORKDIR /go-example
@@ -36,13 +38,18 @@ staticcheck:
 
 build:
     BUILD +clean
-    FROM +deps
+    #FROM +deps
+    #FROM ./services/service-one+deps
+    FROM my_service+deps
+    ARG version
+    RUN echo $version > version.txt
     # Requiere go-1.17
     #ENV GOOS=darwin
     #ENV GOARCH=arm64
     COPY main.go ./
-    RUN go build -o build/go-example main.go
-    SAVE ARTIFACT build/go-example /go-example AS LOCAL build/go-example
+    RUN go build -o build/go-example-$version main.go
+    SAVE ARTIFACT build/go-example-$version /go-example AS LOCAL build/go-example
+    SAVE ARTIFACT version.txt AS LOCAL build/version.txt
 
 migrate:
     FROM +build
@@ -52,8 +59,30 @@ release:
     RUN --push --secret GITHUB_TOKEN=+secrets/GH_TOKEN github-release upload
 
 docker:
+    ARG tag='latest'
     BUILD +build # save file
     COPY +build/go-example .
     ENTRYPOINT ["/go-example/go-example"]
-    SAVE IMAGE mario21ic/go-example:latest
+    SAVE IMAGE --push mario21ic/go-example:$tag
 
+with-build:
+    BUILD +docker --tag='my-new-image-tag'
+
+with-from:
+    FROM +docker --tag='my-new-image-tag'
+
+with-copy:
+    COPY (+build/go-example --version='1.0') .
+
+# Example of docker in docker
+my-hello-world:
+    FROM ubuntu
+    CMD echo 'my hello world'
+    SAVE IMAGE my-hello:latest
+hello:
+    FROM earthly/dind:alpine
+    WITH DOCKER --pull hello-world
+    #WITH DOCKER --load hello:latest=+my-hello-world
+    #WITH DOCKER --load hello-world:latest=+my-hello-world
+        RUN docker run hello-world:latest
+    END
